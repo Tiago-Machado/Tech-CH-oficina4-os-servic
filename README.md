@@ -88,3 +88,8 @@ Swagger: http://localhost:3001/api/docs
 ## Repositorios relacionados
 - Billing Service: https://github.com/Tiago-Machado/Tech-CH-oficina4-billing-service
 - Execucao Service: https://github.com/Tiago-Machado/Tech-CH-oficina4-execucao-service
+
+## Evidencia de Cobertura de Testes
+
+### OS Service — 96.4% | 39 testes (5 suites + 4 cenarios BDD)
+![Coverage OS Service](docs/coverage.png)
