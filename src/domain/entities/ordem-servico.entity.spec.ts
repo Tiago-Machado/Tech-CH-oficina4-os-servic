@@ -1,4 +1,4 @@
-import { OrdemServico, StatusOS } from '../../src/domain/entities/ordem-servico.entity';
+import { OrdemServico, StatusOS } from './ordem-servico.entity';
 
 describe('OrdemServico — Domain Entity', () => {
   const criarOsBase = () =>

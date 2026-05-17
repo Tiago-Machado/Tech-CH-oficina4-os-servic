@@ -3,7 +3,7 @@ import { OrdemServicoRepository } from '../../infrastructure/database/repositori
 import { MessagingService } from '../../infrastructure/messaging/messaging.service';
 import { OrdemServico } from '../../domain/entities/ordem-servico.entity';
 import { CriarOsDto } from '../dtos/ordem-servico.dto';
-import { OS_EVENTS, OsCriadaEvent, OrcamentoGeradoEvent, ExecucaoFinalizadaEvent, PagamentoConfirmadoEvent } from '../../domain/events/saga.events.js';
+import { OS_EVENTS, OsCriadaEvent, OrcamentoGeradoEvent, ExecucaoFinalizadaEvent, PagamentoConfirmadoEvent } from '../../domain/events/saga.events';
 
 @Injectable()
 export class OrdemServicoUseCases {
@@ -49,21 +49,13 @@ export class OrdemServicoUseCases {
   async processarOrcamentoGerado(evento: OrcamentoGeradoEvent): Promise<void> {
     const os = await this.repository.buscarPorId(evento.osId);
     if (!os) return;
-
-    // Transição correta: ABERTA → EM_ORCAMENTO → AGUARDANDO_APROVACAO
-    if (os.status === 'ABERTA') {
-      os.enviarParaOrcamento();
-    }
+    if (os.status === 'ABERTA') os.enviarParaOrcamento();
     os.aguardarAprovacao(evento.valorOrcamento);
-    await this.repository.atualizarStatus(os.id, os.status, {
-      valorOrcamento: os.valorOrcamento,
-    });
+    await this.repository.atualizarStatus(os.id, os.status, { valorOrcamento: os.valorOrcamento });
   }
 
   async aprovarOrcamento(id: string): Promise<OrdemServico> {
     const os = await this.buscarPorId(id);
-
-    // Permite aprovar tanto de AGUARDANDO_APROVACAO quanto de ABERTA (fallback)
     if (os.status === 'ABERTA') {
       os.enviarParaOrcamento();
       os.aguardarAprovacao(os.valorOrcamento ?? 0);
