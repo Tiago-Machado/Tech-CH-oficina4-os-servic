@@ -1,0 +1,134 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oficina
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: os-service-config
+  namespace: oficina
+data:
+  NODE_ENV: "production"
+  PORT: "3001"
+  DB_HOST: "postgres-os-service"
+  DB_PORT: "5432"
+  DB_DATABASE: "os_service"
+  RABBITMQ_URL: "amqp://oficina:oficina123@rabbitmq:5672"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: os-service-secrets
+  namespace: oficina
+type: Opaque
+stringData:
+  DB_USERNAME: "os_user"
+  DB_PASSWORD: "os_pass123"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: os-service
+  namespace: oficina
+  labels:
+    app: os-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: os-service
+  template:
+    metadata:
+      labels:
+        app: os-service
+    spec:
+      containers:
+        - name: os-service
+          image: seu-usuario/os-service:latest
+          ports:
+            - containerPort: 3001
+          envFrom:
+            - configMapRef:
+                name: os-service-config
+            - secretRef:
+                name: os-service-secrets
+          livenessProbe:
+            httpGet:
+              path: /api/v1/ordens-servico/health
+              port: 3001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/v1/ordens-servico/health
+              port: 3001
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: os-service
+  namespace: oficina
+spec:
+  selector:
+    app: os-service
+  ports:
+    - port: 3001
+      targetPort: 3001
+  type: ClusterIP
+---
+# PostgreSQL do OS Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-os-service
+  namespace: oficina
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-os-service
+  template:
+    metadata:
+      labels:
+        app: postgres-os-service
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_DB
+              value: os_service
+            - name: POSTGRES_USER
+              value: os_user
+            - name: POSTGRES_PASSWORD
+              value: os_pass123
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-os-service
+  namespace: oficina
+spec:
+  selector:
+    app: postgres-os-service
+  ports:
+    - port: 5432
+      targetPort: 5432

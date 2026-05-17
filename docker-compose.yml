@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  postgres-os:
+    image: postgres:16-alpine
+    container_name: os-service-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: os_service
+      POSTGRES_USER: os_user
+      POSTGRES_PASSWORD: os_pass123
+    volumes:
+      - postgres_os_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U os_user -d os_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oficina-network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: oficina-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: oficina
+      RABBITMQ_DEFAULT_PASS: oficina123
+    ports:
+      - "5672:5672"    # AMQP
+      - "15672:15672"  # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oficina-network
+
+  os-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: os-service-app
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DB_HOST: postgres-os
+      DB_PORT: 5432
+      DB_USERNAME: os_user
+      DB_PASSWORD: os_pass123
+      DB_DATABASE: os_service
+      RABBITMQ_URL: amqp://oficina:oficina123@rabbitmq:5672
+    depends_on:
+      postgres-os:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - oficina-network
+
+volumes:
+  postgres_os_data:
+  rabbitmq_data:
+
+networks:
+  oficina-network:
+    driver: bridge
